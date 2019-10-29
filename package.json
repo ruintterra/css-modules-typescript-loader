@@ -1,6 +1,6 @@
 {
-  "name": "@morlz/css-modules-typescript-loader",
-  "version": "0.0.3",
+  "name": "css-modules-typescript-loader",
+  "version": "0.0.3-rc1",
   "description": "Webpack loader to create TypeScript declarations for CSS Modules",
   "main": "index.js",
   "repository": {
