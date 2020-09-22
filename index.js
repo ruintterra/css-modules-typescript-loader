@@ -8,12 +8,17 @@ const bannerMessage =
 
 const importHeader = 'import { getCurrentInstance } from \'@vue/composition-api\';';
 
+// {} по умолчанию как в vue3
 const exportHookFunction = componentName => `
-export function use${componentName}Style (): { $style: Style } {
-  const { $style } = getCurrentInstance()!;
-  return { $style };
+export function use${componentName}Style (): ${componentName}Style {
+  const vm = getCurrentInstance();
+
+  if (process.env.NODE_ENV === 'development' && !vm)
+    throw new Error('Нельзя использовать "use${componentName}Style()" вне setup()');
+
+  return (vm as any).$style || {};
 }
-`;
+`.trim();
 
 const getNoDeclarationFileError = ({ filename }) =>
   new Error(
@@ -28,16 +33,20 @@ const getTypeMismatchError = ({ filename, expected, actual }) => {
   );
 };
 
-const cssModuleToInterface = (cssModuleKeys) => {
+const cssModuleToInterface = (componentName, cssModuleKeys) => {
   const interfaceFields = cssModuleKeys
     .sort()
     .map(key => `  '${key}': string;`)
     .join('\n');
 
-  return `export interface Style {\n${interfaceFields}\n}`;
+  return `export interface ${componentName}Style {\n${interfaceFields}\n}`;
 };
 
-const getComponentName = filename => path.basename(filename).replace(path.extname(filename), '');
+const getComponentName = filename => path
+  .basename(filename)
+  .replace(path.extname(filename), '')
+  .replace(/\W/gi, '')
+  .replace(/\W+(.)/g, (_, char) => char.toUpperCase());
 
 const filenameToTypingsFilename = filename => {
   const dirName = path.dirname(filename);
@@ -98,7 +107,12 @@ module.exports = function(content, ...rest) {
   }
 
   const componentName = getComponentName(filename);
-  const cssModuleDefinition = `${bannerMessage}\n${importHeader}\n\n${cssModuleToInterface(cssModuleKeys)}\n${exportHookFunction(componentName)}`;
+  const cssModuleDefinition = [
+    bannerMessage,
+    importHeader,
+    cssModuleToInterface(componentName, cssModuleKeys),
+    exportHookFunction(componentName)
+  ].join('\n\n');
 
   if (mode === 'verify') {
     read((err, fileContents) => {
